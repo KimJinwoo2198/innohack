@@ -8,6 +8,7 @@ import importlib
 from typing import Any, Dict
 
 from django.conf import settings
+from openai import OpenAI, OpenAIError
 
 LANGCHAIN_COMPONENTS: Dict[str, Any] = {}
 
@@ -17,6 +18,29 @@ from vision.utils.context import build_week_context
 logger = logging.getLogger(__name__)
 
 GUIDANCE_CACHE_TTL = 1800
+GUIDANCE_LLM_MODEL = getattr(settings, "OPENAI_GUIDANCE_MODEL", "gpt-4o")
+GUIDANCE_OUTPUT_SCHEMA = {
+    "type": "json_schema",
+    "name": "pregnancy_food_guidance",
+    "strict": True,
+    "schema": {
+        "type": "object",
+        "properties": {
+            "safety_summary": {
+                "type": "string",
+                "description": "음식 안전성에 대한 한국어 요약",
+            },
+            "is_safe": {"type": "boolean"},
+            "nutritional_advice": {
+                "type": "string",
+                "description": "임산부 영양 조언",
+            },
+        },
+        "required": ["safety_summary", "is_safe", "nutritional_advice"],
+        "additionalProperties": False,
+    },
+}
+
 PROMPT_TEMPLATE = """너는 대한민국 임산부 안전 및 영양 전문가이다.
 dialect_style: {dialect_style}
 임신 맥락: {week_context}
@@ -32,6 +56,8 @@ JSON 스키마:
 
 응답 본문은 JSON 객체 외 다른 텍스트를 포함하지 않는다.
 """
+
+openai_client = OpenAI(api_key=getattr(settings, "OPENAI_API_KEY", None))
 
 
 def _ensure_langchain_loaded() -> bool:
@@ -126,7 +152,7 @@ def _build_chain():
     vectorstore = _build_vectorstore()
     if not vectorstore:
         return None
-    llm = chat_cls(model="gpt-4o", temperature=0)
+    llm = chat_cls(model="gpt-5.1", temperature=0)
     prompt = prompt_cls(
         input_variables=["summaries", "question"],
         template="다음 참고자료:\n{summaries}\n\n질문:\n{question}\n\n응답은 반드시 JSON만 포함해야 합니다.",
@@ -147,6 +173,49 @@ def _default_guidance(food_name: str) -> Dict[str, Any]:
     }
 
 
+def _extract_openai_text(response: Any) -> str:
+    output = getattr(response, "output", None)
+    if output:
+        first = output[0]
+        if getattr(first, "content", None):
+            first_content = first.content[0]
+            if hasattr(first_content, "text"):
+                return first_content.text
+    raise ValueError("OpenAI Guidance 응답에서 텍스트를 추출하지 못했습니다.")
+
+
+def _call_guidance_llm(question: str) -> Dict[str, Any]:
+    if not getattr(openai_client, "api_key", None):
+        raise RuntimeError("OPENAI_API_KEY가 설정되지 않았습니다.")
+    response = openai_client.responses.create(
+        model=GUIDANCE_LLM_MODEL,
+        temperature=0,
+        text={"format": GUIDANCE_OUTPUT_SCHEMA},
+        input=[
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "input_text",
+                        "text": question
+                        + "\n참고 문헌이 없다면, 최신 임산부 영양 가이드를 기반으로 답하세요.",
+                    }
+                ],
+            }
+        ],
+    )
+    text = _extract_openai_text(response)
+    return json.loads(text)
+
+
+def _generate_guidance_with_llm(food_name: str, question: str) -> Dict[str, Any]:
+    try:
+        return _call_guidance_llm(question)
+    except (OpenAIError, ValueError, json.JSONDecodeError) as exc:
+        logger.error("LLM 폴백 가이드 생성 실패: %s", exc)
+        return _default_guidance(food_name)
+
+
 def get_food_guidance(user, food_name: str, dialect_style: str) -> Dict[str, Any]:
     week_context = build_week_context(user)
     cache_suffix = f"{food_name}:{dialect_style}:{json.dumps(week_context, sort_keys=True)}"
@@ -156,16 +225,16 @@ def get_food_guidance(user, food_name: str, dialect_style: str) -> Dict[str, Any
         return cached
 
     chain = _build_chain()
-    if not chain:
-        guidance = _default_guidance(food_name)
-        set_cache_value(cache_key, guidance, GUIDANCE_CACHE_TTL)
-        return guidance
-
     question = PROMPT_TEMPLATE.format(
         dialect_style=dialect_style,
         week_context=json.dumps(week_context, ensure_ascii=False),
         food_name=food_name,
     )
+    if not chain:
+        guidance = _generate_guidance_with_llm(food_name, question)
+        set_cache_value(cache_key, guidance, GUIDANCE_CACHE_TTL)
+        return guidance
+
     try:
         result = chain({"question": question})
         raw = result.get("answer") or ""
@@ -174,12 +243,12 @@ def get_food_guidance(user, food_name: str, dialect_style: str) -> Dict[str, Any
         return guidance
     except json.JSONDecodeError as exc:
         logger.error("RAG JSON 파싱 실패: %s", exc)
-        guidance = _default_guidance(food_name)
+        guidance = _generate_guidance_with_llm(food_name, question)
         set_cache_value(cache_key, guidance, GUIDANCE_CACHE_TTL)
         return guidance
     except (RuntimeError, ValueError, AttributeError) as exc:  # pragma: no cover - RAG runtime issues
         logger.exception("RAG 가이드 생성 실패: %s", exc)
-        guidance = _default_guidance(food_name)
+        guidance = _generate_guidance_with_llm(food_name, question)
         set_cache_value(cache_key, guidance, GUIDANCE_CACHE_TTL)
         return guidance
 
