@@ -64,3 +64,4 @@ def generate_personalized_recommendations(user, threshold: float = 70.0, limit: 
     set_cache_value(cache_key, payload, RECOMMENDATION_CACHE_TTL)
     return payload
 
+

@@ -17,6 +17,29 @@ logger = logging.getLogger(__name__)
 VISION_MODELS = ["gpt-4o", "gpt-4o-mini"]
 VISION_CACHE_TTL = 1800
 
+STRUCTURED_OUTPUT_FORMAT = {
+    "type": "json_schema",
+    "name": "response_schema",
+    "strict": True,
+    "schema": {
+        "type": "object",
+        "properties": {
+            "food_name": {
+                "type": "string",
+                "description": "한글 음식 이름. 미확인 시 'Unknown'.",
+            },
+            "confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "description": "0과 1 사이의 신뢰도 점수.",
+            },
+        },
+        "required": ["food_name", "confidence"],
+        "additionalProperties": False,
+    },
+}
+
 client = OpenAI(api_key=getattr(settings, "OPENAI_API_KEY", None))
 
 
@@ -72,7 +95,7 @@ def _call_openai_vision(model: str, prompt: str, image_base64: str) -> Dict[str,
     response = client.responses.create(
         model=model,
         temperature=0,
-        response_format={"type": "json_object"},
+        text={"format": STRUCTURED_OUTPUT_FORMAT},
         input=[
             {
                 "role": "user",

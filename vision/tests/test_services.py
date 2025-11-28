@@ -21,3 +21,4 @@ class CacheKeyTests(SimpleTestCase):
         key = build_cache_key(10, "recognition", "abcd")
         self.assertTrue(key.startswith("vision:recognition:10:"))
 
+

@@ -95,3 +95,4 @@ class ResponseStylePreferenceSerializer(serializers.Serializer):
         queryset=ResponseStyle.objects.all(), source="response_style"
     )
 
+
