@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 import importlib
 from threading import Lock
@@ -153,7 +152,7 @@ def _build_chain():
     vectorstore = _build_vectorstore()
     if not vectorstore:
         return None
-    llm = chat_cls(model="gpt-5.1", temperature=0)
+    llm = chat_cls(model="gpt-4.1-nano", temperature=0)
     prompt = prompt_cls(
         input_variables=["summaries", "question"],
         template="다음 참고자료:\n{summaries}\n\n질문:\n{question}\n\n응답은 반드시 JSON만 포함해야 합니다.",
@@ -166,23 +165,29 @@ def _build_chain():
     )
 
 
-_prefetch_lock = Lock()
-_prefetch_state = {"executor": None, "started": False}
+_pipeline_lock = Lock()
+_pipeline_state = {"initialized": False}
 
 
-def warm_up_guidance_pipeline():
-    if _prefetch_state["started"]:
+def initialize_guidance_pipeline():
+    if _pipeline_state["initialized"]:
         return
-    with _prefetch_lock:
-        if _prefetch_state["started"]:
+    with _pipeline_lock:
+        if _pipeline_state["initialized"]:
             return
-        executor = ThreadPoolExecutor(max_workers=1)
-        executor.submit(_build_chain)
-        _prefetch_state["executor"] = executor
-        _prefetch_state["started"] = True
+        try:
+            vectorstore = _build_vectorstore()
+            if vectorstore:
+                _build_chain()
+                _pipeline_state["initialized"] = True
+                logger.info("Guidance pipeline preloaded successfully.")
+            else:
+                logger.warning("Guidance pipeline preload skipped: vectorstore unavailable.")
+        except (RuntimeError, ValueError, OSError, ImportError) as exc:  # pragma: no cover - startup issues
+            logger.exception("Guidance pipeline preload failed: %s", exc)
 
 
-warm_up_guidance_pipeline()
+initialize_guidance_pipeline()
 
 
 def _default_guidance(food_name: str) -> Dict[str, Any]:
