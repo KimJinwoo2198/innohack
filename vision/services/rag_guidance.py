@@ -12,12 +12,10 @@ from openai import OpenAI, OpenAIError
 
 LANGCHAIN_COMPONENTS: Dict[str, Any] = {}
 
-from vision.utils.cache import build_cache_key, get_cache_value, set_cache_value
 from vision.utils.context import build_week_context
 
 logger = logging.getLogger(__name__)
 
-GUIDANCE_CACHE_TTL = 1800
 GUIDANCE_LLM_MODEL = getattr(settings, "OPENAI_GUIDANCE_MODEL", "gpt-4o")
 GUIDANCE_OUTPUT_SCHEMA = {
     "type": "json_schema",
@@ -218,12 +216,6 @@ def _generate_guidance_with_llm(food_name: str, question: str) -> Dict[str, Any]
 
 def get_food_guidance(user, food_name: str, dialect_style: str) -> Dict[str, Any]:
     week_context = build_week_context(user)
-    cache_suffix = f"{food_name}:{dialect_style}:{json.dumps(week_context, sort_keys=True)}"
-    cache_key = build_cache_key(user.id, "guidance", cache_suffix)
-    cached = get_cache_value(cache_key)
-    if cached:
-        return cached
-
     chain = _build_chain()
     question = PROMPT_TEMPLATE.format(
         dialect_style=dialect_style,
@@ -231,26 +223,19 @@ def get_food_guidance(user, food_name: str, dialect_style: str) -> Dict[str, Any
         food_name=food_name,
     )
     if not chain:
-        guidance = _generate_guidance_with_llm(food_name, question)
-        set_cache_value(cache_key, guidance, GUIDANCE_CACHE_TTL)
-        return guidance
+        return _generate_guidance_with_llm(food_name, question)
 
     try:
         result = chain({"question": question})
         raw = result.get("answer") or ""
         guidance = json.loads(raw)
-        set_cache_value(cache_key, guidance, GUIDANCE_CACHE_TTL)
         return guidance
     except json.JSONDecodeError as exc:
         logger.error("RAG JSON 파싱 실패: %s", exc)
-        guidance = _generate_guidance_with_llm(food_name, question)
-        set_cache_value(cache_key, guidance, GUIDANCE_CACHE_TTL)
-        return guidance
+        return _generate_guidance_with_llm(food_name, question)
     except (RuntimeError, ValueError, AttributeError) as exc:  # pragma: no cover - RAG runtime issues
         logger.exception("RAG 가이드 생성 실패: %s", exc)
-        guidance = _generate_guidance_with_llm(food_name, question)
-        set_cache_value(cache_key, guidance, GUIDANCE_CACHE_TTL)
-        return guidance
+        return _generate_guidance_with_llm(food_name, question)
 
 
 def get_food_safety_info(user, food_name: str, dialect_style: str) -> str:
