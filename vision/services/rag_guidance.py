@@ -3,8 +3,10 @@ from __future__ import annotations
 import json
 import logging
 import os
+from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 import importlib
+from threading import Lock
 from typing import Any, Dict
 
 from django.conf import settings
@@ -161,6 +163,25 @@ def _build_chain():
         retriever=vectorstore.as_retriever(search_kwargs={"k": 4}),
         chain_type_kwargs={"prompt": prompt},
     )
+
+
+_prefetch_lock = Lock()
+_prefetch_state = {"executor": None, "started": False}
+
+
+def warm_up_guidance_pipeline():
+    if _prefetch_state["started"]:
+        return
+    with _prefetch_lock:
+        if _prefetch_state["started"]:
+            return
+        executor = ThreadPoolExecutor(max_workers=1)
+        executor.submit(_build_chain)
+        _prefetch_state["executor"] = executor
+        _prefetch_state["started"] = True
+
+
+warm_up_guidance_pipeline()
 
 
 def _default_guidance(food_name: str) -> Dict[str, Any]:
