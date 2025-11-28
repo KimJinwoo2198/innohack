@@ -14,8 +14,11 @@ from vision.utils.cache import build_cache_key, get_cache_value, set_cache_value
 
 logger = logging.getLogger(__name__)
 
-VISION_MODELS = ["gpt-4o", "gpt-4o-mini"]
+VISION_MODELS = ["gpt-5.1","gpt-4o", "gpt-4o-mini"]
 VISION_CACHE_TTL = 1800
+DEFAULT_IMAGE_MIME = "image/jpeg"
+
+DATA_URI_PATTERN = re.compile(r"^data:(image/[a-zA-Z0-9.+-]+);base64,", re.IGNORECASE)
 
 STRUCTURED_OUTPUT_FORMAT = {
     "type": "json_schema",
@@ -47,7 +50,17 @@ def normalize_base64_image(image_base64: str) -> str:
     """Base64 헤더를 제거하고 순수 데이터를 반환."""
     if not image_base64:
         raise ValueError("이미지 데이터가 비어 있습니다.")
-    return re.sub(r"^data:image\/[a-zA-Z]+;base64,", "", image_base64.strip())
+    return DATA_URI_PATTERN.sub("", image_base64.strip())
+
+
+def extract_image_mime_type(image_base64: str) -> str:
+    """Base64 데이터 URI에서 MIME 타입을 추출하고 없으면 기본값을 반환."""
+    if not image_base64:
+        raise ValueError("이미지 데이터가 비어 있습니다.")
+    match = DATA_URI_PATTERN.match(image_base64.strip())
+    if match:
+        return match.group(1).lower()
+    return DEFAULT_IMAGE_MIME
 
 
 def calculate_image_sha(image_base64: str) -> str:
@@ -91,7 +104,10 @@ def _extract_response_text(response: Any) -> str:
     raise ValueError("OpenAI 응답에서 텍스트를 찾을 수 없습니다.")
 
 
-def _call_openai_vision(model: str, prompt: str, image_base64: str) -> Dict[str, Any]:
+def _call_openai_vision(
+    model: str, prompt: str, image_base64: str, mime_type: str
+) -> Dict[str, Any]:
+    data_url = f"data:{mime_type};base64,{image_base64}"
     response = client.responses.create(
         model=model,
         temperature=0,
@@ -101,7 +117,7 @@ def _call_openai_vision(model: str, prompt: str, image_base64: str) -> Dict[str,
                 "role": "user",
                 "content": [
                     {"type": "input_text", "text": prompt},
-                    {"type": "input_image", "image_base64": image_base64},
+                    {"type": "input_image", "image_url": {"url": data_url}},
                 ],
             }
         ],
@@ -116,6 +132,7 @@ def recognize_food_from_image(
     style_prompt: str,
     cache_timeout: int = VISION_CACHE_TTL,
 ) -> Tuple[Dict[str, Any], str, bool]:
+    mime_type = extract_image_mime_type(image_base64)
     normalized_image = normalize_base64_image(image_base64)
     image_sha = calculate_image_sha(normalized_image)
     cache_key = build_cache_key(user.id, "recognition", image_sha)
@@ -134,7 +151,7 @@ def recognize_food_from_image(
     last_error: Exception | None = None
     for model_name in VISION_MODELS:
         try:
-            payload = _call_openai_vision(model_name, prompt, normalized_image)
+            payload = _call_openai_vision(model_name, prompt, normalized_image, mime_type)
             payload["model"] = model_name
             set_cache_value(cache_key, payload, cache_timeout)
             return payload, image_sha, False
