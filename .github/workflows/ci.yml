@@ -146,14 +146,14 @@ jobs:
           docker save reporch:latest | gzip > reporch-image.tar.gz
           
       - name: Upload Web Builder Image Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: web-builder-image
           path: web-builder-image.tar.gz
           retention-days: 1
           
       - name: Upload Main App Image Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: reporch-image
           path: reporch-image.tar.gz
@@ -201,7 +201,7 @@ jobs:
           output: 'trivy-results.json'
           
       - name: Upload Security Scan Results as Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         if: always()
         with:
           name: security-scan-results
