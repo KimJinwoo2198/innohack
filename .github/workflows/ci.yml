@@ -181,7 +181,7 @@ jobs:
           docker images
       
       - name: Run Trivy Security Scan
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.33.1
         with:
           image-ref: ${{ matrix.image }}
           scan-type: 'image'
@@ -190,7 +190,7 @@ jobs:
           format: 'table'
           
       - name: Run Trivy Security Scan (JSON for artifacts)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.33.1
         continue-on-error: true
         with:
           image-ref: ${{ matrix.image }}
