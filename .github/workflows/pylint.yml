@@ -1,0 +1,73 @@
+name: Pylint Quality Gate
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '**.py'
+      - '.github/workflows/pylint.yml'
+      - 'requirements.txt'
+  pull_request:
+    paths:
+      - '**.py'
+      - '.github/workflows/pylint.yml'
+      - 'requirements.txt'
+
+permissions:
+  contents: read         # allow actions/checkout
+  security-events: write # upload SARIF to code scanning
+  actions: read          # allow upload-sarif to access workflow run info
+
+jobs:
+  pylint:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          # 최신 pylint + Django 플러그인
+          pip install pylint==3.0.3 pylint-django==2.5.5 pylint-celery==0.3
+
+      - name: Generate list of Python files
+        id: files
+        run: |
+          echo "files=$(git ls-files '*.py' | tr '\n' ' ')" >> $GITHUB_OUTPUT
+
+      - name: Run Pylint and convert to SARIF
+        run: |
+          cat > dummy_settings.py <<'PY'
+          INSTALLED_APPS = ['django.contrib.contenttypes', 'django.contrib.auth']
+          SECRET_KEY = 'dummy'
+          DATABASES = {'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': ':memory:'}}
+          PY
+
+          export DJANGO_SETTINGS_MODULE=dummy_settings
+
+          # 1) Run pylint in JSON mode
+          pylint --output-format=json \
+                 --exit-zero \
+                 --load-plugins pylint_django,pylint_celery \
+                 ${{ steps.files.outputs.files }} \
+                 > pylint.json
+
+          # 2) Convert JSON → SARIF (uses utils/pylint_json2sarif.py)
+          python utils/pylint_json2sarif.py pylint.json pylint.sarif
+
+      - name: Upload HTML report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pylint-report
+          path: |
+            pylint.sarif 

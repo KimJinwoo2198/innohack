@@ -1,0 +1,390 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-04-01 15:30+0900\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+#: Users/models.py:28
+msgid "email address"
+msgstr ""
+
+#: Users/models.py:34 Users/serializers.py:301
+msgid "전화번호는 9자에서 15자의 숫자만 포함할 수 있습니다."
+msgstr ""
+
+#: Users/models.py:103
+msgid "로그인 기록"
+msgstr ""
+
+#: Users/models.py:104
+msgid "로그인 기록들"
+msgstr ""
+
+#: Users/serializers.py:31
+msgid "비밀번호는 최소 8자 이상이며 숫자와 특수문자를 포함해야 합니다."
+msgstr ""
+
+#: Users/serializers.py:38
+msgid "비밀번호 확인을 위해 다시 입력해주세요."
+msgstr ""
+
+#: Users/serializers.py:42
+msgid "유효한 이메일 주소를 입력해주세요. 인증 코드가 이 주소로 전송됩니다."
+msgstr ""
+
+#: Users/serializers.py:46
+msgid "유효한 전화번호를 입력해주세요. 예: 010-1234-5678"
+msgstr ""
+
+#: Users/serializers.py:63
+msgid "사용자 이름은 문자, 숫자 및 @/./+/-/_ 만 포함할 수 있습니다."
+msgstr ""
+
+#: Users/serializers.py:65
+msgid "올바른 전화번호 형식이 아닙니다. 예: 010-1234-5678"
+msgstr ""
+
+#: Users/serializers.py:68
+msgid "비밀번호가 일치하지 않습니다."
+msgstr ""
+
+#: Users/serializers.py:80
+msgid "이미 사용 중인 사용자 이름입니다."
+msgstr ""
+
+#: Users/serializers.py:82
+msgid "이미 등록된 이메일 주소입니다."
+msgstr ""
+
+#: Users/serializers.py:84
+msgid "이미 등록된 전화번호입니다."
+msgstr ""
+
+#: Users/serializers.py:100
+msgid "Username"
+msgstr ""
+
+#: Users/serializers.py:101
+msgid "Password"
+msgstr ""
+
+#: Users/serializers.py:116
+msgid "반드시 \"username\"과 \"password\"를 포함해야 합니다."
+msgstr ""
+
+#: Users/serializers.py:128
+msgid "비밀번호는 최소 8자 이상이어야 합니다."
+msgstr ""
+
+#: Users/serializers.py:130
+msgid "비밀번호는 최소 하나의 대문자를 포함해야 합니다."
+msgstr ""
+
+#: Users/serializers.py:132
+msgid "비밀번호는 최소 하나의 소문자를 포함해야 합니다."
+msgstr ""
+
+#: Users/serializers.py:134
+msgid "비밀번호는 최소 하나의 숫자를 포함해야 합니다."
+msgstr ""
+
+#: Users/serializers.py:136
+msgid "비밀번호는 최소 하나의 특수문자를 포함해야 합니다."
+msgstr ""
+
+#: Users/serializers.py:142
+msgid "현재 비밀번호가 올바르지 않습니다."
+msgstr ""
+
+#: Users/serializers.py:152
+msgid "Google 인증 코드"
+msgstr ""
+
+#: Users/serializers.py:156
+msgid "유효한 인증 코드가 아닙니다."
+msgstr ""
+
+#: Users/serializers.py:164
+msgid "2FA 활성화를 위한 OTP 시크릿 키"
+msgstr ""
+
+#: Users/serializers.py:177
+msgid "2FA 인증 코드"
+msgstr ""
+
+#: Users/serializers.py:186
+msgid "존재하지 않는 사용자입니다."
+msgstr ""
+
+#: Users/serializers.py:192
+msgid "2FA가 활성화되지 않았습니다."
+msgstr ""
+
+#: Users/serializers.py:199
+msgid "유효하지 않은 인증 코드입니다."
+msgstr ""
+
+#: Users/serializers.py:209
+msgid "사용자가 입력한 OTP"
+msgstr ""
+
+#: Users/serializers.py:217
+msgid "2FA가 활성화되어 있지 않습니다."
+msgstr ""
+
+#: Users/serializers.py:222
+msgid "OTP 생성 중 오류가 발생했습니다."
+msgstr ""
+
+#: Users/serializers.py:224 Users/views.py:734
+msgid "OTP가 유효하지 않습니다."
+msgstr ""
+
+#: Users/serializers.py:231
+msgid "리프레시 토큰을 입력하세요."
+msgstr ""
+
+#: Users/serializers.py:233
+msgid "리프레시 토큰이 비어 있습니다."
+msgstr ""
+
+#: Users/serializers.py:234
+msgid "리프레시 토큰이 제공되지 않았습니다."
+msgstr ""
+
+#: Users/serializers.py:242 Users/serializers.py:288
+msgid "유효하지 않은 리프레시 토큰입니다."
+msgstr ""
+
+#: Users/serializers.py:246
+msgid "이 사용자는 비활성화 상태입니다."
+msgstr ""
+
+#: Users/serializers.py:259
+msgid "해당 이메일로 등록된 사용자가 없습니다."
+msgstr ""
+
+#: Users/serializers.py:261
+msgid "해당 계정은 비활성화 상태입니다."
+msgstr ""
+
+#: Users/serializers.py:272
+msgid "유효하지 않거나 만료된 토큰입니다."
+msgstr ""
+
+#: Users/serializers.py:277
+msgid "비밀번호와 확인 비밀번호가 일치하지 않습니다."
+msgstr ""
+
+#: Users/serializers.py:294
+msgid "선호 언어 설정"
+msgstr ""
+
+#: Users/serializers.py:304
+msgid "국제 표준 형식의 전화번호"
+msgstr ""
+
+#: Users/serializers.py:310
+msgid "표시 이름 (닉네임)"
+msgstr ""
+
+#: Users/serializers.py:316
+msgid "자기소개 또는 상태 메시지"
+msgstr ""
+
+#: Users/serializers.py:320
+msgid "시스템 이메일 수신 동의 여부"
+msgstr ""
+
+#: Users/serializers.py:325
+msgid "프로필 이미지 URL (presigned URL)"
+msgstr ""
+
+#: Users/serializers.py:341
+msgid "공백으로만 이루어진 닉네임은 허용되지 않습니다."
+msgstr ""
+
+#: Users/serializers.py:346
+msgid "공백으로만 이루어진 소개는 허용되지 않습니다."
+msgstr ""
+
+#: Users/serializers.py:353
+msgid "프로필 이미지 URL은 필수입니다."
+msgstr ""
+
+#: Users/serializers.py:354
+msgid "유효한 URL 형식이 아닙니다."
+msgstr ""
+
+#: Users/serializers.py:362
+msgid "지원하지 않는 이미지 확장자입니다."
+msgstr ""
+
+#: Users/views.py:148
+msgid "로그인 성공. 2차 인증 토큰을 입력하세요."
+msgstr ""
+
+#: Users/views.py:159
+msgid "로그인에 성공했습니다."
+msgstr ""
+
+#: Users/views.py:222
+msgid "refresh token이 누락되었습니다."
+msgstr ""
+
+#: Users/views.py:232
+msgid "정상적으로 로그아웃되었습니다."
+msgstr ""
+
+#: Users/views.py:240
+msgid "로그아웃 처리 중 문제가 발생했습니다."
+msgstr ""
+
+#: Users/views.py:270
+msgid "회원가입이 완료되었습니다. 이메일을 확인해주세요."
+msgstr ""
+
+#: Users/views.py:279
+msgid "회원가입 중 오류가 발생했습니다."
+msgstr ""
+
+#: Users/views.py:287
+msgid "입력 데이터가 유효하지 않습니다."
+msgstr ""
+
+#: Users/views.py:311
+msgid "토큰이 제공되지 않았습니다."
+msgstr ""
+
+#: Users/views.py:327
+msgid "이미 인증된 사용자입니다."
+msgstr ""
+
+#: Users/views.py:343
+msgid "이메일 인증이 완료되었습니다."
+msgstr ""
+
+#: Users/views.py:352
+msgid "유효하지 않은 토큰입니다."
+msgstr ""
+
+#: Users/views.py:361
+msgid "서버 오류가 발생했습니다. 다시 시도해주세요."
+msgstr ""
+
+#: Users/views.py:410
+msgid "Google OAuth 인증 코드가 필요합니다."
+msgstr ""
+
+#: Users/views.py:421
+msgid "Google OAuth 인증이 성공적으로 완료되었습니다."
+msgstr ""
+
+#: Users/views.py:435
+msgid "Google API 호출에 실패했습니다."
+msgstr ""
+
+#: Users/views.py:451 Users/views.py:598
+msgid "예상치 못한 오류가 발생했습니다."
+msgstr ""
+
+#: Users/views.py:470
+msgid "Google에서 액세스 토큰을 가져오는 데 실패했습니다."
+msgstr ""
+
+#: Users/views.py:477
+msgid "Google에서 사용자 정보를 가져오는 데 실패했습니다."
+msgstr ""
+
+#: Users/views.py:484
+msgid "이메일은 필수입니다."
+msgstr ""
+
+#: Users/views.py:488
+msgid "Google 사용자 ID는 필수입니다."
+msgstr ""
+
+#: Users/views.py:562
+msgid "GitHub OAuth 인증 코드가 필요합니다."
+msgstr ""
+
+#: Users/views.py:576
+msgid "GitHub OAuth 인증이 성공적으로 완료되었습니다."
+msgstr ""
+
+#: Users/views.py:618
+msgid "GitHub 액세스 토큰 요청에 실패했습니다."
+msgstr ""
+
+#: Users/views.py:631
+msgid "GitHub 사용자 정보 요청에 실패했습니다."
+msgstr ""
+
+#: Users/views.py:675
+msgid "2FA가 이미 활성화되어 있습니다."
+msgstr ""
+
+#: Users/views.py:693
+msgid "2FA 활성화를 시작합니다. QR 코드를 사용하여 인증 앱을 설정하세요."
+msgstr ""
+
+#: Users/views.py:724
+msgid "2FA 활성화를 먼저 시작하세요."
+msgstr ""
+
+#: Users/views.py:745
+msgid "2FA가 성공적으로 활성화되었습니다."
+msgstr ""
+
+#: Users/views.py:772
+msgid "2FA 인증이 성공적으로 완료되었습니다."
+msgstr ""
+
+#: Users/views.py:812
+msgid "2FA가 성공적으로 비활성화되었습니다."
+msgstr ""
+
+#: Users/views.py:831
+msgid "사용자 정보를 성공적으로 반환했습니다."
+msgstr ""
+
+#: Users/views.py:859
+msgid "요청 데이터가 유효하지 않습니다."
+msgstr ""
+
+#: Users/views.py:872
+msgid "토큰 갱신에 성공했습니다."
+msgstr ""
+
+#: Users/views.py:927
+msgid "비밀번호 재설정 링크가 이메일로 전송되었습니다."
+msgstr ""
+
+#: Users/views.py:942
+msgid "비밀번호 재설정 요청 처리 중 문제가 발생했습니다."
+msgstr ""
+
+#: Users/views.py:1067
+msgid "설정 정보를 불러왔습니다."
+msgstr ""
+
+#: Users/views.py:1091
+msgid "설정이 성공적으로 적용되었습니다."
+msgstr ""
+
+#: Users/views.py:1100
+msgid "입력값이 유효하지 않습니다."
+msgstr ""
