@@ -117,7 +117,7 @@ def _call_openai_vision(
                 "role": "user",
                 "content": [
                     {"type": "input_text", "text": prompt},
-                    {"type": "input_image", "image_url": {"url": data_url}},
+                    {"type": "input_image", "image_url": data_url},
                 ],
             }
         ],
