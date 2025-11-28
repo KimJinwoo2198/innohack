@@ -28,7 +28,7 @@ channels-redis==4.2.1
 uvicorn[standard]==0.35.0
 requests==2.32.4
 aiohttp==3.12.13
-orjson==3.10.18
+orjson==3.11.4
 msgpack==1.1.1
 python-dateutil>=2.8.2
 phonenumbers==9.0.8
