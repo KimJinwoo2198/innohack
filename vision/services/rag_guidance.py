@@ -56,22 +56,6 @@ CHAT_OUTPUT_SCHEMA = {
                 "type": "string",
                 "description": "한국어 존댓말 서술. 질문자가 임산부인지 일반인인지에 맞춰 위험 성분·감염원·임상 수치·조리법 효과(가열/비가열에 따른 영양소 변화, 미생물 제거, 독소 변화 등) 등 구체 근거를 포함해 답변.",
             },
-            "references": {
-                "type": "array",
-                "description": "인용한 가이드라인·논문·문헌의 간략 정보 목록 (선택)",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "title": {"type": "string", "description": "제목"},
-                        "source": {"type": "string", "description": "출처"},
-                        "detail": {"type": "string", "description": "상세 설명 (선택)"},
-                    },
-                    "required": ["title", "source", "detail"],
-                    "additionalProperties": False,
-                },
-                "minItems": 0,
-                "maxItems": 3,
-            },
         },
         "required": ["answer"],
         "additionalProperties": False,
@@ -477,7 +461,9 @@ def generate_food_chat_reply(
             ],
         )
         payload = json.loads(_extract_openai_text(response))
-        payload.setdefault("references", [])
+        # LLM 응답에 references 없음 (스키마에서 제거)
+        # 클라이언트용 메타데이터만 추가
+        payload["references"] = []
         payload["retrieved_snippets"] = snippets
         return payload
     except (OpenAIError, ValueError, json.JSONDecodeError) as exc:
@@ -492,16 +478,24 @@ def generate_food_chat_reply(
 
 def get_food_guidance(user, food_name: str, dialect_style: str) -> Dict[str, Any]:
     """기본 음식 가이드 조회 - WebSocket baseline 로딩용 (RAG 제외, 빠른 응답)"""
-    week_context = build_week_context(user)
-    audience_profile = _resolve_audience_profile(week_context)
-    question = PROMPT_TEMPLATE.format(
-        dialect_style=dialect_style,
-        week_context=json.dumps(week_context, ensure_ascii=False),
-        audience_profile=audience_profile,
-        food_name=food_name,
-    )
-    # baseline 로딩은 빠르게 LLM만 사용 (RAG 제외)
-    return _generate_guidance_with_llm(food_name, question)
+    try:
+        week_context = build_week_context(user)
+        audience_profile = _resolve_audience_profile(week_context)
+        question = PROMPT_TEMPLATE.format(
+            dialect_style=dialect_style,
+            week_context=json.dumps(week_context, ensure_ascii=False),
+            audience_profile=audience_profile,
+            food_name=food_name,
+        )
+        logger.debug("get_food_guidance: food=%s, audience=%s", food_name, audience_profile)
+        # baseline 로딩은 빠르게 LLM만 사용 (RAG 제외)
+        result = _generate_guidance_with_llm(food_name, question)
+        logger.debug("get_food_guidance 완료: %s", result)
+        return result
+    except Exception as exc:
+        logger.error("get_food_guidance 실패: food=%s, error=%s", food_name, exc, exc_info=True)
+        # 최악의 경우 기본 가이드 반환
+        return _default_guidance(food_name)
 
 
 def get_food_safety_info(user, food_name: str, dialect_style: str) -> str:
