@@ -78,7 +78,7 @@ CHAT_OUTPUT_SCHEMA = {
     },
 }
 
-FOLLOWUP_PROMPT_TEMPLATE = """너는 대한민국 식품 안전 및 영양 전문가이다.
+FOLLOWUP_PROMPT_TEMPLATE = """너는 대한민국 식품 안전 및 영양 전문가이자 따뜻한 상담사이다.
 food_name: {food_name}
 임신 맥락(JSON): {week_context}
 audience_profile: {audience_profile}
@@ -99,16 +99,21 @@ audience_profile: {audience_profile}
 {question}
 
 지침:
-1. 먼저 질문이 "{food_name}"이나 음식·영양·조리와 관련이 있는지 판단한다.
-   - 관련 있음: 안전성·영양·조리법 관점에서 답변
-   - 관련 없음: "해당 질문은 음식 안전성과 무관합니다. {food_name}에 관한 질문이 있으신가요?" 형태의 자연스러운 대화로 리다이렉트
-2. 음식 관련 질문일 때:
+1. 질문의 의도를 파악하고 자유롭게 응답한다.
+   - 음식/영양/조리 관련: 전문 지식으로 답변
+   - 일상 인사 (안녕, 뭐해 등): 친근하고 따뜻한 톤으로 응답한 뒤 "{food_name}에 대해 궁금한 점이 있으신가요?" 정도로 자연스럽게 이어간다.
+   - 기타 일반 질문: 관심을 보이되 음식 상담 영역으로 부드럽게 유도한다.
+
+2. 음식/영양 관련 질문일 때:
    - 존댓말 2~4문장으로 작성하고, audience_profile에 맞는 핵심 안전/영양 포인트를 강조한다.
    - 위험 원인이나 영양학적 메커니즘을 구체적으로 설명하며, 공신력 있는 가이드라인·연구를 문장 안에 자연스럽게 인용한다.
    - 권장/주의 조언과 근거를 하나의 문단으로 서술하고, '근거:' 같은 라벨은 사용하지 않는다.
-3. 조리법 관련 질문 (구워먹기, 삶기, 튀기기 등, 가열 여부, 조리 시간, 온도): 해당 조리법이 영양소 변화, 미생물 제거, 독소 감소/증가, 소화율 등에 미치는 영향을 구체적으로 설명한다.
-4. 문헌 스니펫에 해당 정보가 없어도, 일반적인 식품학·영양학 지식(가열 시 단백질 변성, 비타민 손실, 미생물 사멸, 수은/중금속 변화 등)을 바탕으로 답변한다.
-5. 근거가 부족하면 최신 보건당국·학회 자료를 언급해 신뢰도를 확보한다.
+
+3. 조리법 관련 질문: 해당 조리법이 영양소 변화, 미생물 제거, 독소 감소/증가, 소화율 등에 미치는 영향을 설명한다.
+
+4. 문헌 스니펫이 있으면 참고하되, 없어도 일반적인 식품학·영양학 지식을 바탕으로 자신감 있게 답변한다.
+
+5. 답변이 명확하지 않거나 전문의 상담이 필요하면 명시한다. 하지만 "근거를 찾지 못했습니다" 같은 부정적 표현은 피한다.
 """
 
 PROMPT_TEMPLATE = """너는 대한민국 식품 안전 및 영양 전문가이다.
@@ -424,19 +429,6 @@ def _build_chat_prompt(
     )
 
 
-def _build_chat_fallback(base_guidance: Dict[str, Any], question: str) -> str:
-    summary = base_guidance.get(
-        "safety_summary",
-        "해당 음식의 안전 정보를 충분히 확보하지 못했습니다.",
-    )
-    advice = base_guidance.get(
-        "nutritional_advice",
-        "섭취 전 전문 의료진과 상담하고 위생 상태를 반드시 확인해 주세요.",
-    )
-    return (
-        f"\"{question}\"에 대한 세부 근거를 찾지 못했습니다. "
-        f"{summary} {advice} 필요 시 전문의와 상의해 주세요."
-    )
 
 
 def generate_food_chat_reply(
@@ -489,8 +481,9 @@ def generate_food_chat_reply(
         return payload
     except (OpenAIError, ValueError, json.JSONDecodeError) as exc:
         logger.error("Food chat 응답 생성 실패: %s", exc)
+        # 실패 시에도 사용자 친화적인 기본 응답 제공
         return {
-            "answer": _build_chat_fallback(base_guidance, question_text),
+            "answer": "죄송합니다. 현재 답변을 생성하지 못했습니다. 잠시 후 다시 시도해 주세요.",
             "references": [],
             "retrieved_snippets": snippets,
         }
