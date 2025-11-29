@@ -80,27 +80,41 @@ class FoodChatConsumer(AsyncJsonWebsocketConsumer):
         return {key: values[-1] for key, values in parsed.items() if values}
 
     async def _hydrate_baseline(self) -> None:
-        await self.send_json({"type": "chat.status", "status": "initializing"})
+        try:
+            await self.send_json({"type": "chat.status", "status": "initializing"})
+        except RuntimeError:
+            # WebSocket이 이미 종료된 경우
+            logger.debug("WebSocket이 종료됨, baseline 전송 스킵")
+            return
+
         try:
             self.base_guidance = await sync_to_async(
                 get_food_guidance, thread_sensitive=True
             )(self.scope["user"], self.food_name, self.dialect_style)
-            await self.send_json(
-                {
-                    "type": "chat.baseline",
-                    "food_name": self.food_name,
-                    "guidance": self.base_guidance,
-                }
-            )
+            try:
+                await self.send_json(
+                    {
+                        "type": "chat.baseline",
+                        "food_name": self.food_name,
+                        "guidance": self.base_guidance,
+                    }
+                )
+            except RuntimeError:
+                # baseline 전송 중 연결이 끝난 경우, 무시
+                logger.debug("Baseline 전송 실패: WebSocket 연결 종료")
         except Exception as exc:  # pragma: no cover - 방어적 로깅
             logger.exception("기본 가이드 불러오기 실패: %s", exc)
-            await self.send_json(
-                {
-                    "type": "assistant.error",
-                    "code": "baseline_failed",
-                    "message": "기본 안전 정보를 불러오지 못했습니다. 다시 시도해주세요.",
-                }
-            )
+            try:
+                await self.send_json(
+                    {
+                        "type": "assistant.error",
+                        "code": "baseline_failed",
+                        "message": "기본 안전 정보를 불러오지 못했습니다. 다시 시도해주세요.",
+                    }
+                )
+            except RuntimeError:
+                # 오류 메시지 전송도 실패한 경우, 조용히 넘김
+                logger.debug("오류 메시지 전송 실패: WebSocket 이미 종료됨")
 
     async def _handle_user_message(self, content: Dict) -> None:
         if not self.base_guidance:

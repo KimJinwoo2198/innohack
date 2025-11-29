@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
+from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 import importlib
 from threading import Lock, Thread
@@ -287,7 +287,8 @@ initialize_guidance_pipeline()
 
 
 def _run_chain_query(chain, question: str) -> Dict[str, Any]:
-    result = chain({"question": question})
+    # LangChain 0.1.0+ 호환: chain.invoke() 사용
+    result = chain.invoke({"question": question})
     raw = result.get("answer") or ""
     return json.loads(raw)
 
@@ -490,27 +491,16 @@ def generate_food_chat_reply(
 
 
 def get_food_guidance(user, food_name: str, dialect_style: str) -> Dict[str, Any]:
+    """기본 음식 가이드 조회 - WebSocket baseline 로딩용 (RAG 제외, 빠른 응답)"""
     week_context = build_week_context(user)
     audience_profile = _resolve_audience_profile(week_context)
-    chain = _build_chain()
     question = PROMPT_TEMPLATE.format(
         dialect_style=dialect_style,
         week_context=json.dumps(week_context, ensure_ascii=False),
         audience_profile=audience_profile,
         food_name=food_name,
     )
-    if not chain:
-        return _generate_guidance_with_llm(food_name, question)
-
-    future = _rag_executor.submit(_run_chain_query, chain, question)
-    try:
-        return future.result(timeout=GUIDANCE_RAG_TIMEOUT)
-    except FuturesTimeout:
-        logger.warning(
-            "RAG 가이드 생성이 %ss를 초과해 LLM 폴백으로 대체합니다.", GUIDANCE_RAG_TIMEOUT
-        )
-    except (json.JSONDecodeError, RuntimeError, ValueError, AttributeError) as exc:
-        logger.exception("RAG 가이드 생성 실패: %s", exc)
+    # baseline 로딩은 빠르게 LLM만 사용 (RAG 제외)
     return _generate_guidance_with_llm(food_name, question)
 
 
