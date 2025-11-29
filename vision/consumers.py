@@ -24,17 +24,15 @@ class FoodChatConsumer(AsyncJsonWebsocketConsumer):
     """
 
     async def connect(self) -> None:
-        user = self.scope.get("user")
-        if not user or not user.is_authenticated:
-            await self.close(code=4401)
-            return
-
         params = self._parse_query_params()
         self.food_name: str = (params.get("food") or params.get("food_name") or "").strip()
         self.dialect_style: str = (params.get("dialect_style") or "standard").strip() or "standard"
         self.session_id: str = params.get("session_id") or str(uuid4())
         self.chat_history: List[Dict[str, str]] = []
         self.base_guidance: Dict[str, str] | None = None
+        self.is_authenticated_user = bool(
+            self.scope.get("user") and getattr(self.scope["user"], "is_authenticated", False)
+        )
 
         if not self.food_name:
             await self.close(code=4400)
@@ -46,6 +44,7 @@ class FoodChatConsumer(AsyncJsonWebsocketConsumer):
                 "type": "chat.connected",
                 "session_id": self.session_id,
                 "food_name": self.food_name,
+                "is_authenticated": self.is_authenticated_user,
             }
         )
         asyncio.create_task(self._hydrate_baseline())

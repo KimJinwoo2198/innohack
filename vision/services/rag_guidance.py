@@ -6,7 +6,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
 from functools import lru_cache
 import importlib
-from threading import Lock
+from threading import Lock, Thread
 from typing import Any, Dict, List, Optional
 
 from django.conf import settings
@@ -229,26 +229,33 @@ def _build_chain():
 
 
 _pipeline_lock = Lock()
-_pipeline_state = {"initialized": False}
+_pipeline_state = {"initialized": False, "initializing": False}
 _rag_executor = ThreadPoolExecutor(max_workers=2)
 
 
-def initialize_guidance_pipeline():
-    if _pipeline_state["initialized"]:
-        return
-    with _pipeline_lock:
-        if _pipeline_state["initialized"]:
-            return
-        try:
-            vectorstore = _build_vectorstore()
-            if vectorstore:
-                _build_chain()
+def _preload_pipeline() -> None:
+    try:
+        vectorstore = _build_vectorstore()
+        if vectorstore:
+            _build_chain()
+            with _pipeline_lock:
                 _pipeline_state["initialized"] = True
-                logger.info("Guidance pipeline preloaded successfully.")
-            else:
-                logger.warning("Guidance pipeline preload skipped: vectorstore unavailable.")
-        except (RuntimeError, ValueError, OSError, ImportError) as exc:  # pragma: no cover - startup issues
-            logger.exception("Guidance pipeline preload failed: %s", exc)
+            logger.info("Guidance pipeline preloaded successfully.")
+        else:
+            logger.warning("Guidance pipeline preload skipped: vectorstore unavailable.")
+    except (RuntimeError, ValueError, OSError, ImportError) as exc:  # pragma: no cover - startup issues
+        logger.exception("Guidance pipeline preload failed: %s", exc)
+    finally:
+        with _pipeline_lock:
+            _pipeline_state["initializing"] = False
+
+
+def initialize_guidance_pipeline():
+    with _pipeline_lock:
+        if _pipeline_state["initialized"] or _pipeline_state["initializing"]:
+            return
+        _pipeline_state["initializing"] = True
+    Thread(target=_preload_pipeline, name="guidance-preloader", daemon=True).start()
 
 
 initialize_guidance_pipeline()
