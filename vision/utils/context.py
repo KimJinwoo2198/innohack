@@ -9,7 +9,7 @@ from django.contrib.auth.models import AnonymousUser
 
 from vision.models import PregnancyStage, ResponseStyle, UserPregnancyProfile
 
-# pylint: disable=no-member
+# pylint: disable=no-member,broad-except
 
 logger = logging.getLogger(__name__)
 
