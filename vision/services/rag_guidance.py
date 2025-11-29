@@ -83,10 +83,9 @@ audience_profile: {audience_profile}
 {question}
 
 지침:
-1. 질문의 의도를 파악하고 자유롭게 응답한다.
-   - 음식/영양/조리 관련: 전문 지식으로 답변
-   - 일상 인사 (안녕, 뭐해 등): 친근하고 따뜻한 톤으로 응답한 뒤 "{food_name}에 대해 궁금한 점이 있으신가요?" 정도로 자연스럽게 이어간다.
-   - 기타 일반 질문: 관심을 보이되 음식 상담 영역으로 부드럽게 유도한다.
+1. 질문이 음식/영양/조리와 관련이 있는지 판단한다.
+   - 관련 없음 (일상 인사, 한담 등): "{food_name}에 대해 궁금한 점이 있으신가요?" 정도로 짧게 응답하고 더는 음식 내용을 추가하지 않는다.
+   - 관련 있음: 전문 지식으로 답변 (아래 지침 2-5 참고).
 
 2. 음식/영양 관련 질문일 때:
    - 존댓말 2~4문장으로 작성하고, audience_profile에 맞는 핵심 안전/영양 포인트를 강조한다.
@@ -432,7 +431,8 @@ def generate_food_chat_reply(
     base_guidance = base_guidance or get_food_guidance(user, food_name, dialect_style)
     week_context = build_week_context(user, override_week=pregnancy_week)
     audience_profile = _resolve_audience_profile(week_context)
-    snippets = _retrieve_supporting_snippets(food_name, question_text, CHAT_REFERENCE_LIMIT)
+    # 채팅에서도 RAG 스니펫 조회 스킵 - LLM만 사용
+    snippets = []
     prompt = _build_chat_prompt(
         food_name=food_name,
         week_context=week_context,
