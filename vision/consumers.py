@@ -24,11 +24,8 @@ class FoodChatConsumer(AsyncJsonWebsocketConsumer):
     """
 
     async def connect(self) -> None:
-        user = self.scope.get("user")
-        if not user or not user.is_authenticated:
-            await self.close(code=4401)
-            return
-
+        self.user = self.scope.get("user")
+        self.anonymous_id = self.scope.get("anonymous_id")
         params = self._parse_query_params()
         self.food_name: str = (params.get("food") or params.get("food_name") or "").strip()
         self.dialect_style: str = (params.get("dialect_style") or "standard").strip() or "standard"
@@ -75,7 +72,7 @@ class FoodChatConsumer(AsyncJsonWebsocketConsumer):
         try:
             self.base_guidance = await sync_to_async(
                 get_food_guidance, thread_sensitive=True
-            )(self.scope["user"], self.food_name, self.dialect_style)
+            )(self.scope.get("user"), self.food_name, self.dialect_style)
             await self.send_json(
                 {
                     "type": "chat.baseline",
@@ -123,7 +120,7 @@ class FoodChatConsumer(AsyncJsonWebsocketConsumer):
             reply = await sync_to_async(
                 generate_food_chat_reply, thread_sensitive=True
             )(
-                self.scope["user"],
+                self.scope.get("user"),
                 self.food_name,
                 self.dialect_style,
                 message,
