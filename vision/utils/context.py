@@ -53,7 +53,16 @@ def _is_anonymous(user) -> bool:
     return not getattr(user, "is_authenticated", False)
 
 
-def build_week_context(user) -> Dict[str, str]:
+def build_week_context(user, override_week: Optional[int] = None) -> Dict[str, str]:
+    """사용자 임신 주차 컨텍스트 구성. override_week이 주어지면 우선 적용."""
+    if override_week is not None and 1 <= override_week <= 42:
+        # 외부 파라미터로 주차가 명시된 경우 (WebSocket 연결 등)
+        return {
+            "current_week": str(override_week),
+            "stage_label": "외부 설정",
+            "weight_gain_kg": "",
+        }
+
     if _is_anonymous(user):
         return DEFAULT_WEEK_CONTEXT.copy()
 

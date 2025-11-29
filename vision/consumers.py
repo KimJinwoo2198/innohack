@@ -33,6 +33,15 @@ class FoodChatConsumer(AsyncJsonWebsocketConsumer):
         self.is_authenticated_user = bool(
             self.scope.get("user") and getattr(self.scope["user"], "is_authenticated", False)
         )
+        # 쿼리 파라미터에서 임산부 주차를 받음 (week 또는 pregnancy_week)
+        # 기본값: 20주 (2분기 중기)
+        week_str = (params.get("week") or params.get("pregnancy_week") or "20").strip()
+        try:
+            self.pregnancy_week: int = int(week_str)
+            if not (1 <= self.pregnancy_week <= 42):
+                self.pregnancy_week = 20
+        except ValueError:
+            self.pregnancy_week = 20
 
         if not self.food_name:
             await self.close(code=4400)
@@ -45,6 +54,7 @@ class FoodChatConsumer(AsyncJsonWebsocketConsumer):
                 "session_id": self.session_id,
                 "food_name": self.food_name,
                 "is_authenticated": self.is_authenticated_user,
+                "pregnancy_week": self.pregnancy_week,
             }
         )
         asyncio.create_task(self._hydrate_baseline())
@@ -128,6 +138,7 @@ class FoodChatConsumer(AsyncJsonWebsocketConsumer):
                 message,
                 history_snapshot,
                 self.base_guidance,
+                self.pregnancy_week,
             )
         except ValueError as exc:
             await self.send_json(

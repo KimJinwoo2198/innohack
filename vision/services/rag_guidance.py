@@ -99,12 +99,16 @@ audience_profile: {audience_profile}
 {question}
 
 지침:
-1. 답변은 존댓말 2~4문장으로 작성하고, audience_profile에 맞는 핵심 안전/영양 포인트를 강조한다.
-2. 위험 원인이나 영양학적 메커니즘을 구체적으로 설명하며, 공신력 있는 가이드라인·연구를 문장 안에 자연스럽게 인용한다.
-3. 권장/주의 조언과 근거를 하나의 문단으로 서술하고, '근거:' 같은 라벨은 사용하지 않는다.
-4. 질문이 조리법(구워먹기, 삶기, 튀기기 등), 가열 여부, 조리 시간, 온도 등 요리 방법에 관한 것이라면, 해당 조리법이 영양소 변화, 미생물 제거, 독소 감소/증가, 소화율 등에 미치는 영향을 구체적으로 설명한다. 예: "구워먹으면", "삶으면", "날것으로", "가열하면" 등.
-5. 문헌 스니펫에 해당 조리법 정보가 없어도, 일반적인 식품학·영양학 지식(가열 시 단백질 변성, 비타민 손실, 미생물 사멸, 수은/중금속 변화 등)을 바탕으로 답변한다.
-6. 근거가 부족하면 최신 보건당국·학회 자료를 언급해 신뢰도를 확보한다.
+1. 먼저 질문이 "{food_name}"이나 음식·영양·조리와 관련이 있는지 판단한다.
+   - 관련 있음: 안전성·영양·조리법 관점에서 답변
+   - 관련 없음: "해당 질문은 음식 안전성과 무관합니다. {food_name}에 관한 질문이 있으신가요?" 형태의 자연스러운 대화로 리다이렉트
+2. 음식 관련 질문일 때:
+   - 존댓말 2~4문장으로 작성하고, audience_profile에 맞는 핵심 안전/영양 포인트를 강조한다.
+   - 위험 원인이나 영양학적 메커니즘을 구체적으로 설명하며, 공신력 있는 가이드라인·연구를 문장 안에 자연스럽게 인용한다.
+   - 권장/주의 조언과 근거를 하나의 문단으로 서술하고, '근거:' 같은 라벨은 사용하지 않는다.
+3. 조리법 관련 질문 (구워먹기, 삶기, 튀기기 등, 가열 여부, 조리 시간, 온도): 해당 조리법이 영양소 변화, 미생물 제거, 독소 감소/증가, 소화율 등에 미치는 영향을 구체적으로 설명한다.
+4. 문헌 스니펫에 해당 정보가 없어도, 일반적인 식품학·영양학 지식(가열 시 단백질 변성, 비타민 손실, 미생물 사멸, 수은/중금속 변화 등)을 바탕으로 답변한다.
+5. 근거가 부족하면 최신 보건당국·학회 자료를 언급해 신뢰도를 확보한다.
 """
 
 PROMPT_TEMPLATE = """너는 대한민국 식품 안전 및 영양 전문가이다.
@@ -442,13 +446,14 @@ def generate_food_chat_reply(
     question: str,
     history: Optional[List[Dict[str, str]]] = None,
     base_guidance: Optional[Dict[str, Any]] = None,
+    pregnancy_week: Optional[int] = None,
 ) -> Dict[str, Any]:
     question_text = (question or "").strip()
     if not question_text:
         raise ValueError("질문이 비어 있습니다.")
 
     base_guidance = base_guidance or get_food_guidance(user, food_name, dialect_style)
-    week_context = build_week_context(user)
+    week_context = build_week_context(user, override_week=pregnancy_week)
     audience_profile = _resolve_audience_profile(week_context)
     snippets = _retrieve_supporting_snippets(food_name, question_text, CHAT_REFERENCE_LIMIT)
     prompt = _build_chat_prompt(
