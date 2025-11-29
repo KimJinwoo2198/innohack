@@ -9,12 +9,6 @@ from vision.models import PregnancyStage, ResponseStyle, UserPregnancyProfile
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_WEEK_CONTEXT = {
-    "current_week": "20",
-    "stage_label": "미정",
-    "weight_gain_kg": "",
-}
-
 
 def get_or_create_profile(user) -> UserPregnancyProfile:
     profile, _ = UserPregnancyProfile.objects.get_or_create(user=user)
@@ -41,8 +35,6 @@ def resolve_pregnancy_stage(profile: UserPregnancyProfile) -> Optional[Pregnancy
 
 
 def build_week_context(user) -> Dict[str, str]:
-    if not user or not getattr(user, "is_authenticated", False):
-        return DEFAULT_WEEK_CONTEXT.copy()
     profile = get_or_create_profile(user)
     stage = resolve_pregnancy_stage(profile)
     return {
