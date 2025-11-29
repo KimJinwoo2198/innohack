@@ -14,11 +14,19 @@ try:
 except ModuleNotFoundError:
     civil_websocket_urls = []
 
+try:
+    vision_module = importlib.import_module("vision.routing")  # noqa: E402  pylint: disable=wrong-import-position
+    vision_websocket_urls = getattr(vision_module, "websocket_urlpatterns", [])
+except ModuleNotFoundError:
+    vision_websocket_urls = []
+
 from Users.ws_auth import JWTAuthMiddleware  # noqa: E402  pylint: disable=wrong-import-position
+
+websocket_routes = [*civil_websocket_urls, *vision_websocket_urls]
 
 application = ProtocolTypeRouter(
     {
         "http": django_asgi_app,
-        "websocket": JWTAuthMiddleware(URLRouter(civil_websocket_urls)),
+        "websocket": JWTAuthMiddleware(URLRouter(websocket_routes)),
     }
 )

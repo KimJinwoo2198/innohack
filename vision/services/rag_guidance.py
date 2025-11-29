@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeou
 from functools import lru_cache
 import importlib
 from threading import Lock
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
 from django.conf import settings
 from openai import OpenAI, OpenAIError
@@ -41,6 +41,64 @@ GUIDANCE_OUTPUT_SCHEMA = {
         "additionalProperties": False,
     },
 }
+
+CHAT_HISTORY_LIMIT = getattr(settings, "FOOD_CHAT_HISTORY_LIMIT", 6)
+CHAT_REFERENCE_LIMIT = getattr(settings, "FOOD_CHAT_REFERENCE_LIMIT", 3)
+CHAT_LLM_MODEL = getattr(settings, "OPENAI_FOOD_CHAT_MODEL", GUIDANCE_LLM_MODEL)
+CHAT_OUTPUT_SCHEMA = {
+    "type": "json_schema",
+    "name": "pregnancy_food_chat_response",
+    "strict": True,
+    "schema": {
+        "type": "object",
+        "properties": {
+            "answer": {
+                "type": "string",
+                "description": "임산부 대상 한국어 존댓말 서술. 위험 성분·감염원·임상 수치 등 구체 근거를 포함해 질문에 답변.",
+            },
+            "references": {
+                "type": "array",
+                "description": "인용한 가이드라인·논문·문헌의 간략 정보 목록",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "title": {"type": "string"},
+                        "source": {"type": "string"},
+                        "detail": {"type": "string"},
+                    },
+                    "required": ["title", "source"],
+                    "additionalProperties": False,
+                },
+                "minItems": 0,
+                "maxItems": 5,
+            },
+        },
+        "required": ["answer"],
+        "additionalProperties": False,
+    },
+}
+
+FOLLOWUP_PROMPT_TEMPLATE = """너는 대한민국 임산부 전문 영양사 겸 산모 안전 컨설턴트이다.
+food_name: {food_name}
+임신 맥락(JSON): {week_context}
+기본 안전 요약: {safety_summary}
+기본 영양 조언: {nutritional_advice}
+
+기존 대화:
+{chat_history}
+
+문헌 스니펫:
+{doc_snippets}
+
+사용자 질문:
+{question}
+
+지침:
+1. 답변은 존댓말 2~4문장으로 작성하고, 질문의 의학적/영양학적 원인을 구체적으로 설명한다.
+2. 가능하면 WHO/ACOG/대한산부인과학회·SCI 논문 등 공인 근거를 문장 안에 자연스럽게 인용한다.
+3. 권장/주의 조언과 근거를 하나의 문단으로 서술하며, 라벨(예: '근거:')을 사용하지 않는다.
+4. 참고 문헌에 근거가 부족하면 최신 임산부 영양 지침을 명시적으로 언급해 설명한다.
+"""
 
 PROMPT_TEMPLATE = """너는 대한민국 임산부 안전 및 영양 전문가이다.
 dialect_style: {dialect_style}
@@ -251,6 +309,149 @@ def _generate_guidance_with_llm(food_name: str, question: str) -> Dict[str, Any]
     except (OpenAIError, ValueError, json.JSONDecodeError) as exc:
         logger.error("LLM 폴백 가이드 생성 실패: %s", exc)
         return _default_guidance(food_name)
+
+
+def _format_chat_history(history: Optional[List[Dict[str, str]]]) -> str:
+    if not history:
+        return "이전 대화 없음"
+    trimmed = history[-CHAT_HISTORY_LIMIT:]
+    lines: List[str] = []
+    for turn in trimmed:
+        role = (turn.get("role") or "").lower()
+        message = (turn.get("message") or "").strip()
+        if not message:
+            continue
+        speaker = "사용자" if role == "user" else "AI"
+        lines.append(f"{speaker}: {message}")
+    return "\n".join(lines) if lines else "이전 대화 없음"
+
+
+def _retrieve_supporting_snippets(food_name: str, question: str, limit: int) -> List[Dict[str, Any]]:
+    if limit <= 0:
+        return []
+    vectorstore = _build_vectorstore()
+    if not vectorstore:
+        return []
+    try:
+        retriever = vectorstore.as_retriever(search_kwargs={"k": limit})
+        documents = retriever.get_relevant_documents(f"{food_name} {question}")
+    except (RuntimeError, ValueError, AttributeError) as exc:  # pragma: no cover - 방어적 로깅
+        logger.warning("문헌 스니펫 검색 실패: %s", exc)
+        return []
+    snippets: List[Dict[str, Any]] = []
+    for doc in documents:
+        metadata = getattr(doc, "metadata", {}) or {}
+        excerpt = (getattr(doc, "page_content", "") or "").strip()
+        if not excerpt:
+            continue
+        cleaned_excerpt = " ".join(excerpt.split())
+        snippets.append(
+            {
+                "source": str(metadata.get("source") or metadata.get("file_path") or "nutrition_pdfs"),
+                "page": metadata.get("page") or metadata.get("page_number"),
+                "excerpt": cleaned_excerpt[:600],
+            }
+        )
+    return snippets
+
+
+def _format_doc_snippets(snippets: List[Dict[str, Any]]) -> str:
+    if not snippets:
+        return "문헌 스니펫 없음"
+    lines: List[str] = []
+    for idx, snippet in enumerate(snippets, start=1):
+        page = snippet.get("page")
+        page_str = f"(p.{page})" if page not in (None, "") else ""
+        lines.append(f"[Doc {idx}] {snippet.get('source')} {page_str}: {snippet.get('excerpt')}")
+    return "\n".join(lines)
+
+
+def _build_chat_prompt(
+    food_name: str,
+    week_context: Dict[str, Any],
+    base_guidance: Dict[str, Any],
+    history: Optional[List[Dict[str, str]]],
+    snippets: List[Dict[str, Any]],
+    question: str,
+) -> str:
+    return FOLLOWUP_PROMPT_TEMPLATE.format(
+        food_name=food_name,
+        week_context=json.dumps(week_context, ensure_ascii=False),
+        safety_summary=base_guidance.get("safety_summary", ""),
+        nutritional_advice=base_guidance.get("nutritional_advice", ""),
+        chat_history=_format_chat_history(history),
+        doc_snippets=_format_doc_snippets(snippets),
+        question=question,
+    )
+
+
+def _build_chat_fallback(base_guidance: Dict[str, Any], question: str) -> str:
+    summary = base_guidance.get(
+        "safety_summary",
+        "해당 음식의 임산부 안전성 정보를 충분히 확보하지 못했습니다.",
+    )
+    advice = base_guidance.get(
+        "nutritional_advice",
+        "섭취 전 전문 의료진과 상담하고 위생 상태를 반드시 확인해 주세요.",
+    )
+    return (
+        f"\"{question}\"에 대한 세부 근거를 찾지 못했습니다. "
+        f"{summary} {advice} 필요 시 산모전문의와 상의해 주세요."
+    )
+
+
+def generate_food_chat_reply(
+    user,
+    food_name: str,
+    dialect_style: str,
+    question: str,
+    history: Optional[List[Dict[str, str]]] = None,
+    base_guidance: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    question_text = (question or "").strip()
+    if not question_text:
+        raise ValueError("질문이 비어 있습니다.")
+
+    base_guidance = base_guidance or get_food_guidance(user, food_name, dialect_style)
+    week_context = build_week_context(user)
+    snippets = _retrieve_supporting_snippets(food_name, question_text, CHAT_REFERENCE_LIMIT)
+    prompt = _build_chat_prompt(
+        food_name=food_name,
+        week_context=week_context,
+        base_guidance=base_guidance,
+        history=history,
+        snippets=snippets,
+        question=question_text,
+    )
+
+    try:
+        response = openai_client.responses.create(
+            model=CHAT_LLM_MODEL,
+            temperature=0,
+            text={"format": CHAT_OUTPUT_SCHEMA},
+            input=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": prompt,
+                        }
+                    ],
+                }
+            ],
+        )
+        payload = json.loads(_extract_openai_text(response))
+        payload.setdefault("references", [])
+        payload["retrieved_snippets"] = snippets
+        return payload
+    except (OpenAIError, ValueError, json.JSONDecodeError) as exc:
+        logger.error("Food chat 응답 생성 실패: %s", exc)
+        return {
+            "answer": _build_chat_fallback(base_guidance, question_text),
+            "references": [],
+            "retrieved_snippets": snippets,
+        }
 
 
 def get_food_guidance(user, food_name: str, dialect_style: str) -> Dict[str, Any]:
