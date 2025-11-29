@@ -29,12 +29,12 @@ GUIDANCE_OUTPUT_SCHEMA = {
         "properties": {
             "safety_summary": {
                 "type": "string",
-                "description": "임산부 음식 안전성에 대한 한국어 요약",
+                "description": "임산부 음식 안전성을 자연스러운 문장으로 설명한 한국어 요약(접두사·라벨 금지)",
             },
             "is_safe": {"type": "boolean"},
             "nutritional_advice": {
                 "type": "string",
-                "description": "임산부 영양/섭취 가이드와 반드시 포함되는 의학·영양적 근거 설명",
+                "description": "임산부 영양/섭취 가이드와 반드시 포함되는 의학·영양적 근거 설명(대한산부인과학회·ACOG·WHO 등 공인 가이드라인/연구 인용)",
             },
         },
         "required": ["safety_summary", "is_safe", "nutritional_advice"],
@@ -48,7 +48,9 @@ dialect_style: {dialect_style}
 food_name: {food_name}
 
 제공된 자료(nutrition corpus)를 참고해 해당 음식의 임산부 음식 안전성 여부와 영양 조언을 JSON 하나로만 출력한다.
-nutritional_advice 필드는 권장/주의사항 뒤에 반드시 \"근거: ...\" 형식으로 의학적/영양학적 이유를 포함한다.
+- safety_summary는 라벨 없이 자연스러운 존댓말 문장으로 작성한다.
+- nutritional_advice는 권장/주의 문장 뒤에 \"근거\" 같은 라벨을 쓰지 말고, 대한산부인과학회·ACOG·WHO 등 공인 가이드라인 또는 SCI 논문을 예로 들어 전문적인 의학·영양 근거를 연결된 문장으로 설명한다.
+- 모든 문장은 key:value 형식이 아니라 연속된 문장으로 서술한다.
 각 필드는 임산부에게 직접 말하듯 정중한 존댓말로 작성하며, 전체 응답은 3줄 이내로 요약한다.
 JSON 스키마:
 {{
