@@ -32,7 +32,7 @@ GUIDANCE_OUTPUT_SCHEMA = {
             "is_safe": {"type": "boolean"},
             "nutritional_advice": {
                 "type": "string",
-                "description": "임산부 영양/섭취 가이드에 대한 한국어 요약",
+                "description": "임산부 영양/섭취 가이드와 근거(의학·영양적 이유)를 포함한 한국어 요약",
             },
         },
         "required": ["safety_summary", "is_safe", "nutritional_advice"],
@@ -45,7 +45,7 @@ dialect_style: {dialect_style}
 임신 맥락: {week_context}
 food_name: {food_name}
 
-제공된 자료(nutrition corpus)를 참고해 해당 음식의 임산부 음식 안전성 여부와 영양 조언을 JSON 하나로만 출력한다.
+제공된 자료(nutrition corpus)를 참고해 해당 음식의 임산부 음식 안전성 여부와 영양 조언(의학·영양적 근거 포함)을 JSON 하나로만 출력한다.
 각 필드는 임산부에게 직접 말하듯 정중한 존댓말로 작성하며, 전체 응답은 3줄 이내로 요약한다.
 JSON 스키마:
 {{
