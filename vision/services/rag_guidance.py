@@ -29,12 +29,12 @@ GUIDANCE_OUTPUT_SCHEMA = {
         "properties": {
             "safety_summary": {
                 "type": "string",
-                "description": "임산부 음식 안전성을 자연스러운 문장으로 설명한 한국어 요약(접두사·라벨 금지)",
+                "description": "사용자 맥락(임산부/일반인)에 맞춰 자연스럽게 설명하는 한국어 안전성 요약(접두사·라벨 금지)",
             },
             "is_safe": {"type": "boolean"},
             "nutritional_advice": {
                 "type": "string",
-                "description": "임산부 영양/섭취 가이드와 반드시 포함되는 의학·영양적 근거 설명(대한산부인과학회·ACOG·WHO 등 공인 가이드라인/연구 인용)",
+                "description": "사용자 맥락에 맞춘 섭취 가이드와 의학·영양 근거 설명(임산부라면 대한산부인과학회·ACOG·WHO, 일반인이라면 FAO/식약처/WHO 등 공신력 있는 근거 포함)",
             },
         },
         "required": ["safety_summary", "is_safe", "nutritional_advice"],
@@ -54,7 +54,7 @@ CHAT_OUTPUT_SCHEMA = {
         "properties": {
             "answer": {
                 "type": "string",
-                "description": "임산부 대상 한국어 존댓말 서술. 위험 성분·감염원·임상 수치 등 구체 근거를 포함해 질문에 답변.",
+                "description": "한국어 존댓말 서술. 질문자가 임산부인지 일반인인지에 맞춰 위험 성분·감염원·임상 수치·조리법 효과(가열/비가열에 따른 영양소 변화, 미생물 제거, 독소 변화 등) 등 구체 근거를 포함해 답변.",
             },
             "references": {
                 "type": "array",
@@ -78,11 +78,16 @@ CHAT_OUTPUT_SCHEMA = {
     },
 }
 
-FOLLOWUP_PROMPT_TEMPLATE = """너는 대한민국 임산부 전문 영양사 겸 산모 안전 컨설턴트이다.
+FOLLOWUP_PROMPT_TEMPLATE = """너는 대한민국 식품 안전 및 영양 전문가이다.
 food_name: {food_name}
 임신 맥락(JSON): {week_context}
+audience_profile: {audience_profile}
 기본 안전 요약: {safety_summary}
 기본 영양 조언: {nutritional_advice}
+
+사용자는 임산부일 수도 있고 일반 소비자일 수도 있다. audience_profile에 따라 어조와 근거를 조절한다.
+- audience_profile == "pregnancy": 임산부와 태아 안전을 중심으로 설명하고, 대한산부인과학회·ACOG·WHO 등 산모 가이드라인이나 임신 관련 연구를 인용한다.
+- audience_profile == "general": 일반 성인·가족 식단 기준으로 설명하며 임산부 표현은 사용하지 않는다. 식약처, WHO, FAO, 국제 영양학회 등 공신력 있는 근거를 인용한다.
 
 기존 대화:
 {chat_history}
@@ -94,22 +99,27 @@ food_name: {food_name}
 {question}
 
 지침:
-1. 답변은 존댓말 2~4문장으로 작성하고, 질문의 의학적/영양학적 원인을 구체적으로 설명한다.
-2. 가능하면 WHO/ACOG/대한산부인과학회·SCI 논문 등 공인 근거를 문장 안에 자연스럽게 인용한다.
-3. 권장/주의 조언과 근거를 하나의 문단으로 서술하며, 라벨(예: '근거:')을 사용하지 않는다.
-4. 참고 문헌에 근거가 부족하면 최신 임산부 영양 지침을 명시적으로 언급해 설명한다.
+1. 답변은 존댓말 2~4문장으로 작성하고, audience_profile에 맞는 핵심 안전/영양 포인트를 강조한다.
+2. 위험 원인이나 영양학적 메커니즘을 구체적으로 설명하며, 공신력 있는 가이드라인·연구를 문장 안에 자연스럽게 인용한다.
+3. 권장/주의 조언과 근거를 하나의 문단으로 서술하고, '근거:' 같은 라벨은 사용하지 않는다.
+4. 질문이 조리법(구워먹기, 삶기, 튀기기 등), 가열 여부, 조리 시간, 온도 등 요리 방법에 관한 것이라면, 해당 조리법이 영양소 변화, 미생물 제거, 독소 감소/증가, 소화율 등에 미치는 영향을 구체적으로 설명한다. 예: "구워먹으면", "삶으면", "날것으로", "가열하면" 등.
+5. 문헌 스니펫에 해당 조리법 정보가 없어도, 일반적인 식품학·영양학 지식(가열 시 단백질 변성, 비타민 손실, 미생물 사멸, 수은/중금속 변화 등)을 바탕으로 답변한다.
+6. 근거가 부족하면 최신 보건당국·학회 자료를 언급해 신뢰도를 확보한다.
 """
 
-PROMPT_TEMPLATE = """너는 대한민국 임산부 안전 및 영양 전문가이다.
+PROMPT_TEMPLATE = """너는 대한민국 식품 안전 및 영양 전문가이다.
 dialect_style: {dialect_style}
 임신 맥락: {week_context}
+audience_profile: {audience_profile}
 food_name: {food_name}
 
-제공된 자료(nutrition corpus)를 참고해 해당 음식의 임산부 음식 안전성 여부와 영양 조언을 JSON 하나로만 출력한다.
-- safety_summary는 라벨 없이 자연스러운 존댓말 문장으로 작성한다.
-- nutritional_advice는 "권장/주의 문장 + 구체적 이유" 구조를 따르며, 특정 위험 성분·미생물·영양 불균형 또는 임신 합병증과의 연관성을 명시하고, 대한산부인과학회·ACOG·WHO 가이드라인이나 주요 메타분석/무작위대조연구 등 구체적 근거를 문장 안에 인용한다(예: "...가이드라인은 ...를 제한하도록 권고합니다", "...연구에서 ... 위험이 2배 증가했습니다").
-- 모든 문장은 key:value 형식이 아니라 연속된 문장으로 서술한다.
-각 필드는 임산부에게 직접 말하듯 정중한 존댓말로 작성하며, 전체 응답은 3줄 이내로 요약한다.
+제공된 자료(nutrition corpus)를 참고해 해당 음식의 안전성·영양 조언을 JSON 하나로만 출력한다.
+- audience_profile == "pregnancy": 임산부와 태아 안전, 산모 대사 변화, 임신 중 주의사항을 중심으로 설명하고 대한산부인과학회·ACOG·WHO 등 산모 가이드라인이나 임신 관련 연구를 인용한다.
+- audience_profile == "general": 일반 성인·가족 식단 관점에서 설명하고 임산부 표현을 사용하지 않는다. 식약처, WHO, FAO, 국제 영양학회 등 공신력 있는 근거를 인용한다.
+- safety_summary는 라벨 없이 자연스러운 존댓말 문장으로 작성하고, 질문 상황에 맞는 핵심 위험/장점을 한 문단으로 요약한다.
+- nutritional_advice는 "권장/주의 문장 + 구체적 이유" 구조를 따르며, 해당 audience_profile에 적합한 공인 근거(가이드라인·메타분석·무작위대조연구 등)를 문장 안에 자연스럽게 인용한다.
+- 모든 문장은 key:value 형식이 아니라 연속된 문장으로 서술하고, 과도한 공포 조장은 피한다.
+각 필드는 사용자에게 직접 말하듯 정중한 존댓말로 작성하며, 전체 응답은 3줄 이내로 요약한다.
 JSON 스키마:
 {{
   "safety_summary": "한국어 설명",
@@ -121,6 +131,12 @@ JSON 스키마:
 """
 
 openai_client = OpenAI(api_key=getattr(settings, "OPENAI_API_KEY", None))
+
+
+def _resolve_audience_profile(week_context: Dict[str, Any]) -> str:
+    if isinstance(week_context, dict) and week_context.get("current_week"):
+        return "pregnancy"
+    return "general"
 
 
 def _ensure_langchain_loaded() -> bool:
@@ -341,7 +357,17 @@ def _retrieve_supporting_snippets(food_name: str, question: str, limit: int) -> 
         return []
     try:
         retriever = vectorstore.as_retriever(search_kwargs={"k": limit})
-        documents = retriever.get_relevant_documents(f"{food_name} {question}")
+        # 질문 전체를 우선시하고, 음식명과 조리법 키워드를 함께 검색
+        # 조리법 관련 키워드가 있으면 더 강조
+        cooking_keywords = ["구워", "삶", "튀기", "가열", "조리", "요리", "날것", "생식", "익혀", "데치", "볶", "찜"]
+        has_cooking_context = any(keyword in question for keyword in cooking_keywords)
+        if has_cooking_context:
+            # 조리법 질문: 질문 전체를 우선, 음식명도 포함
+            search_query = f"{question} {food_name} 조리법 가열"
+        else:
+            # 일반 질문: 음식명과 질문을 함께
+            search_query = f"{food_name} {question}"
+        documents = retriever.get_relevant_documents(search_query)
     except (RuntimeError, ValueError, AttributeError) as exc:  # pragma: no cover - 방어적 로깅
         logger.warning("문헌 스니펫 검색 실패: %s", exc)
         return []
@@ -380,10 +406,12 @@ def _build_chat_prompt(
     history: Optional[List[Dict[str, str]]],
     snippets: List[Dict[str, Any]],
     question: str,
+    audience_profile: str,
 ) -> str:
     return FOLLOWUP_PROMPT_TEMPLATE.format(
         food_name=food_name,
         week_context=json.dumps(week_context, ensure_ascii=False),
+        audience_profile=audience_profile,
         safety_summary=base_guidance.get("safety_summary", ""),
         nutritional_advice=base_guidance.get("nutritional_advice", ""),
         chat_history=_format_chat_history(history),
@@ -395,7 +423,7 @@ def _build_chat_prompt(
 def _build_chat_fallback(base_guidance: Dict[str, Any], question: str) -> str:
     summary = base_guidance.get(
         "safety_summary",
-        "해당 음식의 임산부 안전성 정보를 충분히 확보하지 못했습니다.",
+        "해당 음식의 안전 정보를 충분히 확보하지 못했습니다.",
     )
     advice = base_guidance.get(
         "nutritional_advice",
@@ -403,7 +431,7 @@ def _build_chat_fallback(base_guidance: Dict[str, Any], question: str) -> str:
     )
     return (
         f"\"{question}\"에 대한 세부 근거를 찾지 못했습니다. "
-        f"{summary} {advice} 필요 시 산모전문의와 상의해 주세요."
+        f"{summary} {advice} 필요 시 전문의와 상의해 주세요."
     )
 
 
@@ -421,6 +449,7 @@ def generate_food_chat_reply(
 
     base_guidance = base_guidance or get_food_guidance(user, food_name, dialect_style)
     week_context = build_week_context(user)
+    audience_profile = _resolve_audience_profile(week_context)
     snippets = _retrieve_supporting_snippets(food_name, question_text, CHAT_REFERENCE_LIMIT)
     prompt = _build_chat_prompt(
         food_name=food_name,
@@ -429,6 +458,7 @@ def generate_food_chat_reply(
         history=history,
         snippets=snippets,
         question=question_text,
+        audience_profile=audience_profile,
     )
 
     try:
@@ -463,10 +493,12 @@ def generate_food_chat_reply(
 
 def get_food_guidance(user, food_name: str, dialect_style: str) -> Dict[str, Any]:
     week_context = build_week_context(user)
+    audience_profile = _resolve_audience_profile(week_context)
     chain = _build_chain()
     question = PROMPT_TEMPLATE.format(
         dialect_style=dialect_style,
         week_context=json.dumps(week_context, ensure_ascii=False),
+        audience_profile=audience_profile,
         food_name=food_name,
     )
     if not chain:
