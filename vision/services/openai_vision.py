@@ -14,7 +14,7 @@ from vision.utils.cache import build_cache_key, get_cache_value, set_cache_value
 
 logger = logging.getLogger(__name__)
 
-VISION_MODELS = ["gpt-5.1","gpt-4o", "gpt-4o-mini"]
+VISION_MODELS = ["gpt-4o",]
 VISION_CACHE_TTL = 1800
 DEFAULT_IMAGE_MIME = "image/jpeg"
 

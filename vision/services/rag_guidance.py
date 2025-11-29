@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
 from functools import lru_cache
 import importlib
 from threading import Lock
@@ -18,6 +19,7 @@ from vision.utils.context import build_week_context
 logger = logging.getLogger(__name__)
 
 GUIDANCE_LLM_MODEL = getattr(settings, "OPENAI_GUIDANCE_MODEL", "gpt-4o")
+GUIDANCE_RAG_TIMEOUT = getattr(settings, "GUIDANCE_RAG_TIMEOUT", 2.5)
 GUIDANCE_OUTPUT_SCHEMA = {
     "type": "json_schema",
     "name": "pregnancy_food_guidance",
@@ -168,6 +170,7 @@ def _build_chain():
 
 _pipeline_lock = Lock()
 _pipeline_state = {"initialized": False}
+_rag_executor = ThreadPoolExecutor(max_workers=2)
 
 
 def initialize_guidance_pipeline():
@@ -189,6 +192,12 @@ def initialize_guidance_pipeline():
 
 
 initialize_guidance_pipeline()
+
+
+def _run_chain_query(chain, question: str) -> Dict[str, Any]:
+    result = chain({"question": question})
+    raw = result.get("answer") or ""
+    return json.loads(raw)
 
 
 def _default_guidance(food_name: str) -> Dict[str, Any]:
@@ -253,17 +262,16 @@ def get_food_guidance(user, food_name: str, dialect_style: str) -> Dict[str, Any
     if not chain:
         return _generate_guidance_with_llm(food_name, question)
 
+    future = _rag_executor.submit(_run_chain_query, chain, question)
     try:
-        result = chain({"question": question})
-        raw = result.get("answer") or ""
-        guidance = json.loads(raw)
-        return guidance
-    except json.JSONDecodeError as exc:
-        logger.error("RAG JSON 파싱 실패: %s", exc)
-        return _generate_guidance_with_llm(food_name, question)
-    except (RuntimeError, ValueError, AttributeError) as exc:  # pragma: no cover - RAG runtime issues
+        return future.result(timeout=GUIDANCE_RAG_TIMEOUT)
+    except FuturesTimeout:
+        logger.warning(
+            "RAG 가이드 생성이 %ss를 초과해 LLM 폴백으로 대체합니다.", GUIDANCE_RAG_TIMEOUT
+        )
+    except (json.JSONDecodeError, RuntimeError, ValueError, AttributeError) as exc:
         logger.exception("RAG 가이드 생성 실패: %s", exc)
-        return _generate_guidance_with_llm(food_name, question)
+    return _generate_guidance_with_llm(food_name, question)
 
 
 def get_food_safety_info(user, food_name: str, dialect_style: str) -> str:
